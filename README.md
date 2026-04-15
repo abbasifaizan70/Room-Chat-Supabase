@@ -1,13 +1,16 @@
 # Supabase chat
 
-A minimal **shared lobby** chat: React + TypeScript + Vite on the front end, [Supabase](https://supabase.com) for auth, Postgres, Row Level Security, and Realtime. Everyone who signs into the **same Supabase project** sees the same **`general`** room—there is no direct messaging between two picked users.
+Private **direct messages** and **group chats** with a WhatsApp-style sidebar: React + TypeScript + Vite, [Supabase](https://supabase.com) auth, Postgres, Row Level Security, and Realtime. Search by **username**, start a 1:1 chat, or **New group** to name a room and add people.
 
 ## Features
 
 - Email/password sign-up and sign-in
-- Messages stored in Postgres with RLS (users only read/write allowed rows)
-- Profiles with display names, created automatically on sign-up
-- Live updates via Supabase Realtime (`postgres_changes` on `messages`), plus a short polling fallback so new messages appear even if Realtime is misconfigured
+- Sidebar inbox (last message preview), main pane with aligned bubbles (yours vs theirs)
+- Search people by display name (`profiles.username`)
+- **Groups**: name a chat, pick members, message everyone; **Add people** from the group header
+- Direct conversations (`direct_conversations` / `direct_messages`) and groups (`group_chats` / `group_messages`) with RLS
+- RPCs: `get_or_create_dm`, `list_my_dms`, `create_group_chat`, `add_group_members`, `list_my_group_chats`
+- Realtime + polling on the active conversation
 
 ## Prerequisites
 
@@ -22,16 +25,17 @@ A minimal **shared lobby** chat: React + TypeScript + Vite on the front end, [Su
    - Copy **Project URL** → `VITE_SUPABASE_URL`
    - Copy the **`anon` `public`** key → `VITE_SUPABASE_ANON_KEY` (use this in the browser only; never expose the `service_role` key in frontend code).
 
-3. **Database schema** — **SQL → New query**, paste the contents of [`supabase/schema.sql`](supabase/schema.sql), then run it.  
-   This creates `profiles` and `messages`, RLS policies, a trigger to create a profile on sign-up, and adds `messages` to the `supabase_realtime` publication for Realtime.
+3. **Database schema** — **SQL → New query**, paste and run [`supabase/schema.sql`](supabase/schema.sql) (creates `profiles`, signup trigger, and the legacy `messages` table if you still need it).
 
-   If `alter publication supabase_realtime add table public.messages` errors because the table is already published, you can skip that line.
+4. **Direct messages** — Run [`supabase/direct_messages.sql`](supabase/direct_messages.sql) in the SQL Editor. This adds `direct_conversations`, `direct_messages`, RLS, `get_or_create_dm`, `list_my_dms`, and Realtime on `direct_messages`. If `alter publication … direct_messages` errors because the table is already in the publication, skip that line.
 
-4. **Auth URLs (local dev)** — **Authentication → URL configuration**:
+5. **Group chats** — Run [`supabase/group_chats.sql`](supabase/group_chats.sql). This adds `group_chats`, `group_chat_members`, `group_messages`, RPCs `create_group_chat` and `add_group_members`, `list_my_group_chats`, and Realtime on `group_messages`. Skip the last line if the table is already published.
+
+6. **Auth URLs (local dev)** — **Authentication → URL configuration**:
    - Set **Site URL** to your dev origin (e.g. `http://localhost:5173`).
    - Add the same URL under **Redirect URLs** if you use email confirmation links.
 
-5. **Realtime** — Under **Database → Publications** (or **Replication**, depending on the UI), ensure **`messages`** is included in **`supabase_realtime`**. The SQL in step 3 normally does this; toggle it on if needed.
+7. **Realtime** — Under **Database → Publications**, ensure **`direct_messages`** and **`group_messages`** are in **`supabase_realtime`** (the SQL files usually add them).
 
 ## 2. Run the app locally
 
@@ -57,7 +61,7 @@ Open the URL Vite prints (usually `http://localhost:5173`). Restart the dev serv
 
 ### Testing with two users
 
-Use two browsers or one normal window plus a private/incognito window, create two accounts, and sign in to both. You should see the same lobby and each other’s messages.
+Create two accounts (different emails). Each user should set a distinct **display name** at signup. Sign in as user A in one browser and user B in another; search for B’s username from A’s sidebar and start a chat—only those two users can read that thread.
 
 ## Scripts
 
@@ -72,9 +76,12 @@ Use two browsers or one normal window plus a private/incognito window, create tw
 
 | Path                 | Role |
 |----------------------|------|
-| `src/App.tsx`        | Auth UI, lobby, messages, Realtime + polling |
+| `src/App.tsx`        | Auth shell |
+| `src/DmChatApp.tsx`  | Sidebar inbox, search, chat pane, DM Realtime |
 | `src/lib/supabase.ts`| Supabase client (`VITE_*` env vars) |
-| `supabase/schema.sql`| Tables, RLS, triggers, Realtime publication |
+| `supabase/schema.sql`| Profiles, legacy `messages`, signup trigger |
+| `supabase/direct_messages.sql` | 1:1 DMs, RPCs, RLS, Realtime |
+| `supabase/group_chats.sql` | Group chats, members, messages, RPCs, Realtime |
 | `.github/workflows/deploy-github-pages.yml` | CI: build + deploy to GitHub Pages |
 
 ## Deploy with GitHub (Pages)
@@ -153,6 +160,5 @@ Without this, sign-in redirects or email links can fail in production.
 
 - **`Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY`** — Copy `.env.example` to `.env` and fill in values from **Project Settings → API**. Restart `npm run dev`.
 
-- **Others’ messages only after refresh** — Confirm `messages` is in the `supabase_realtime` publication and that `schema.sql` ran without errors. Check the browser console for Realtime errors. The app polls every few seconds as a fallback.
+- **DMs not updating live** — Confirm `direct_messages` is in the `supabase_realtime` publication and that [`supabase/direct_messages.sql`](supabase/direct_messages.sql) ran. The app also polls the open thread periodically.
 
-- **“Chat with one specific person”** — This app is a single shared room, not private DMs. Building DMs would need extra tables (e.g. conversations, participants) and UI.
