@@ -110,18 +110,23 @@ Use your real username and repo name in place of `YOUR_USERNAME` / `YOUR_REPO`.
 GitHub cannot read your local `.env`. Add the same values as **encrypted secrets**:
 
 1. Repo → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
-2. Create:
+2. Create secrets whose **names match exactly** (Vite only reads these at build time):
    - `VITE_SUPABASE_URL` — your Supabase project URL
    - `VITE_SUPABASE_ANON_KEY` — the **anon public** key (same as in `.env`)
 
-The workflow injects them at build time (Vite bakes `VITE_*` into the static JS).
+Do not use names like `SUPABASE_URL` without the `VITE_` prefix—the build will not see them, and the live site will show a configuration error or throw `supabaseUrl is required`.
 
-### 3. Enable GitHub Pages from Actions
+The workflow injects them at build time (Vite bakes `VITE_*` into the static JS). After adding or changing secrets, **re-run the deploy workflow** (or push a commit) so the site rebuilds.
+
+### 3. Enable GitHub Pages from Actions (do this before the first deploy)
+
+The deploy step will return **404 / Failed to create deployment** until Pages is configured in the repo.
 
 1. Repo → **Settings** → **Pages**
-2. Under **Build and deployment**, set **Source** to **GitHub Actions**
+2. Under **Build and deployment** → **Source**, choose **GitHub Actions** (not “Deploy from a branch”).
+3. If you only see branch options, pick **GitHub Actions** from the source dropdown and save.
 
-The next push to `main` (or **Actions** → **Deploy to GitHub Pages** → **Run workflow**) will build and publish. When the workflow is green, open the site URL from the **deploy** job or **Settings → Pages**.
+Then push to `main` or **Actions** → **Deploy to GitHub Pages** → **Run workflow**. When the workflow is green, open the site URL from the **deploy** job or **Settings → Pages**.
 
 ### 4. Allow your production URL in Supabase Auth
 
@@ -139,6 +144,10 @@ Without this, sign-in redirects or email links can fail in production.
 - **Other hosts (Vercel, Netlify, Cloudflare Pages)** — Connect the same GitHub repo; set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in that host’s environment UI. Those URLs usually use `/` as the path—do **not** set `VITE_BASE_PATH` (leave default `/`).
 
 ## Troubleshooting
+
+- **`Uncaught Error: supabaseUrl is required`** — The production build was compiled **without** `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`. Add both as **Actions** repository secrets (exact names above), then redeploy. Locally, use a `.env` file; never commit it.
+
+- **`deploy-pages` / `Failed to create deployment` / `HttpError: Not Found` (404)** — GitHub Pages is not set to deploy from **GitHub Actions** yet, or the setting was never saved. Open **Settings → Pages**, set **Source** to **GitHub Actions**, save, then **re-run the failed workflow** (or push an empty commit). Do not use “Deploy from a branch” if you use this workflow.
 
 - **`Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY`** — Copy `.env.example` to `.env` and fill in values from **Project Settings → API**. Restart `npm run dev`.
 

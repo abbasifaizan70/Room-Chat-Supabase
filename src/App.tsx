@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { supabase } from './lib/supabase'
+import { isSupabaseConfigured, supabase } from './lib/supabase'
 import './App.css'
 
 type MessageRow = {
@@ -13,6 +13,35 @@ type MessageRow = {
 }
 
 export default function App() {
+  if (!isSupabaseConfigured) {
+    return (
+      <div className="app auth-screen">
+        <header className="auth-header">
+          <h1>Supabase configuration missing</h1>
+          <p className="lede">
+            The app needs <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code>{' '}
+            at build time.
+          </p>
+        </header>
+        <div className="auth-card config-hint">
+          <p>
+            <strong>Local:</strong> copy <code>.env.example</code> to <code>.env</code>, add your
+            keys from Supabase → Project Settings → API, then run <code>npm run dev</code> again.
+          </p>
+          <p>
+            <strong>GitHub Pages:</strong> in the repo go to Settings → Secrets and variables →
+            Actions, and add repository secrets named exactly{' '}
+            <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code>. Push a new
+            commit or re-run the deploy workflow so the site rebuilds with those values.
+          </p>
+        </div>
+      </div>
+    )
+  }
+  return <ChatApp />
+}
+
+function ChatApp() {
   const [session, setSession] = useState<Session | null>(null)
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin')
   const [email, setEmail] = useState('')

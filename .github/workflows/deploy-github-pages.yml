@@ -1,5 +1,7 @@
 # Build and deploy the Vite app to GitHub Pages.
-# Prerequisites: repo Settings → Pages → Build and deployment → Source: GitHub Actions
+#
+# REQUIRED ONCE: Repo → Settings → Pages → Build and deployment → Source: GitHub Actions
+# (not "Deploy from a branch"). If you skip this, deploy-pages fails with 404.
 name: Deploy to GitHub Pages
 
 on:
