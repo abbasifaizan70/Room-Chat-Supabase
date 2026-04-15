@@ -29,7 +29,11 @@ Private **direct messages** and **group chats** with a WhatsApp-style sidebar: R
 
 4. **Direct messages** — Run [`supabase/direct_messages.sql`](supabase/direct_messages.sql) in the SQL Editor. This adds `direct_conversations`, `direct_messages`, RLS, `get_or_create_dm`, `list_my_dms`, and Realtime on `direct_messages`. If `alter publication … direct_messages` errors because the table is already in the publication, skip that line.
 
-5. **Group chats** — Run [`supabase/group_chats.sql`](supabase/group_chats.sql). This adds `group_chats`, `group_chat_members`, `group_messages`, RPCs `create_group_chat` and `add_group_members`, `list_my_group_chats`, and Realtime on `group_messages`. Skip the last line if the table is already published.
+5. **Group chats** — Run [`supabase/group_chats.sql`](supabase/group_chats.sql). This adds `group_chats`, `group_chat_members`, `group_messages`, the `is_group_member` helper (avoids RLS recursion), RPCs `create_group_chat` and `add_group_members`, `list_my_group_chats`, and Realtime on `group_messages`. Skip the last line if the table is already published.
+
+   If you previously ran an older `group_chats.sql` and see **infinite recursion detected in policy for relation "group_chat_members"**, run [`supabase/group_chats_fix_rls.sql`](supabase/group_chats_fix_rls.sql) once in the SQL Editor.
+
+   If the **Members** modal shows **0 people** or Add people never shows **In group** for existing members, run [`supabase/list_group_members.sql`](supabase/list_group_members.sql) (adds the `list_group_members` RPC the app uses to load members reliably).
 
 6. **Auth URLs (local dev)** — **Authentication → URL configuration**:
    - Set **Site URL** to your dev origin (e.g. `http://localhost:5173`).
@@ -82,6 +86,7 @@ Create two accounts (different emails). Each user should set a distinct **displa
 | `supabase/schema.sql`| Profiles, legacy `messages`, signup trigger |
 | `supabase/direct_messages.sql` | 1:1 DMs, RPCs, RLS, Realtime |
 | `supabase/group_chats.sql` | Group chats, members, messages, RPCs, Realtime |
+| `supabase/list_group_members.sql` | Optional: add `list_group_members` RPC if members list is empty |
 | `.github/workflows/deploy-github-pages.yml` | CI: build + deploy to GitHub Pages |
 
 ## Deploy with GitHub (Pages)

@@ -40,48 +40,44 @@ alter table public.group_chats enable row level security;
 alter table public.group_chat_members enable row level security;
 alter table public.group_messages enable row level security;
 
+-- Membership check without querying group_chat_members from RLS (avoids infinite recursion).
+create or replace function public.is_group_member(p_group_chat_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.group_chat_members
+    where group_chat_id = p_group_chat_id
+      and user_id = auth.uid()
+  );
+$$;
+
+grant execute on function public.is_group_member(uuid) to authenticated;
+
 create policy "Members read group row"
   on public.group_chats for select
   to authenticated
-  using (
-    exists (
-      select 1 from public.group_chat_members m
-      where m.group_chat_id = id and m.user_id = auth.uid()
-    )
-  );
+  using (public.is_group_member(id));
 
 create policy "Members read membership"
   on public.group_chat_members for select
   to authenticated
-  using (
-    exists (
-      select 1 from public.group_chat_members m
-      where m.group_chat_id = group_chat_members.group_chat_id
-        and m.user_id = auth.uid()
-    )
-  );
+  using (public.is_group_member(group_chat_id));
 
 create policy "Members read group messages"
   on public.group_messages for select
   to authenticated
-  using (
-    exists (
-      select 1 from public.group_chat_members m
-      where m.group_chat_id = group_messages.group_chat_id
-        and m.user_id = auth.uid()
-    )
-  );
+  using (public.is_group_member(group_chat_id));
 
 create policy "Members send as self in group"
   on public.group_messages for insert
   to authenticated
   with check (
     sender_id = auth.uid()
-    and exists (
-      select 1 from public.group_chat_members m
-      where m.group_chat_id = group_messages.group_chat_id
-        and m.user_id = auth.uid()
-    )
+    and public.is_group_member(group_chat_id)
   );
 
 create or replace function public.bump_group_chat_ts()
@@ -217,5 +213,29 @@ as $$
 $$;
 
 grant execute on function public.list_my_group_chats() to authenticated;
+
+-- Reliable member list for the UI (direct .from('group_chat_members') + embed can return 0 rows with RLS/embed issues).
+create or replace function public.list_group_members(p_group_id uuid)
+returns table (
+  user_id uuid,
+  username text,
+  joined_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    m.user_id,
+    p.username,
+    m.joined_at
+  from public.group_chat_members m
+  inner join public.profiles p on p.id = m.user_id
+  where m.group_chat_id = p_group_id
+    and public.is_group_member(p_group_id);
+$$;
+
+grant execute on function public.list_group_members(uuid) to authenticated;
 
 alter publication supabase_realtime add table public.group_messages;

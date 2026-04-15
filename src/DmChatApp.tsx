@@ -45,6 +45,12 @@ type ActiveChat =
 
 type UserHit = { id: string; username: string }
 
+type GroupMemberRow = {
+  user_id: string
+  joined_at: string
+  username: string
+}
+
 type Props = {
   supabase: SupabaseClient
   session: Session
@@ -77,7 +83,20 @@ export function DmChatApp({ supabase, session, onSignOut }: Props) {
   const [addSearching, setAddSearching] = useState(false)
   const [addPicked, setAddPicked] = useState<UserHit[]>([])
 
+  const [groupMembersList, setGroupMembersList] = useState<GroupMemberRow[]>([])
+  const [membersModalOpen, setMembersModalOpen] = useState(false)
+
   const listRef = useRef<HTMLDivElement>(null)
+  const dmSearchInputRef = useRef<HTMLInputElement>(null)
+
+  function startNewChat() {
+    setActive(null)
+    setPeerTitle(null)
+    setSendError(null)
+    setDraft('')
+    dmSearchInputRef.current?.focus()
+    dmSearchInputRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }
 
   const activeDmRow = active?.type === 'dm' ? inbox.find((r) => r.kind === 'dm' && r.conversation_id === active.conversationId) : undefined
   const activeGroupRow = active?.type === 'group' ? inbox.find((r) => r.kind === 'group' && r.group_chat_id === active.groupId) : undefined
@@ -88,6 +107,44 @@ export function DmChatApp({ supabase, session, onSignOut }: Props) {
       : active?.type === 'group'
         ? (activeGroupRow?.kind === 'group' ? activeGroupRow.name : null)
         : null
+
+  const loadGroupMembers = useCallback(
+    async (groupId: string) => {
+      const { data, error } = await supabase.rpc('list_group_members', {
+        p_group_id: groupId,
+      })
+      if (error) {
+        console.error('list_group_members', error)
+        setGroupMembersList([])
+        return
+      }
+      const rows = (data ?? []) as { user_id: string; username: string; joined_at: string }[]
+      setGroupMembersList(
+        rows.map((r) => ({
+          user_id: r.user_id,
+          username: r.username,
+          joined_at: r.joined_at,
+        }))
+      )
+    },
+    [supabase]
+  )
+
+  useEffect(() => {
+    if (active?.type !== 'group') {
+      setGroupMembersList([])
+      return
+    }
+    void loadGroupMembers(active.groupId)
+  }, [active, loadGroupMembers])
+
+  useEffect(() => {
+    if (addMembersOpen && active?.type === 'group') {
+      void loadGroupMembers(active.groupId)
+    }
+  }, [addMembersOpen, active, loadGroupMembers])
+
+  const groupMemberIdSet = new Set(groupMembersList.map((m) => m.user_id))
 
   const loadInbox = useCallback(async () => {
     const [{ data: dms, error: e1 }, { data: groups, error: e2 }] = await Promise.all([
@@ -365,6 +422,7 @@ export function DmChatApp({ supabase, session, onSignOut }: Props) {
     setAddSearch('')
     setAddHits([])
     void loadInbox()
+    if (active?.type === 'group') void loadGroupMembers(active.groupId)
   }
 
   const isDmActive = active?.type === 'dm'
@@ -381,6 +439,9 @@ export function DmChatApp({ supabase, session, onSignOut }: Props) {
           </div>
           <p className="dm-you">{session.user.email}</p>
           <div className="dm-actions-row">
+            <button type="button" className="primary dm-action-btn" onClick={startNewChat}>
+              New chat
+            </button>
             <button type="button" className="primary dm-action-btn" onClick={() => setCreateGroupOpen(true)}>
               New group
             </button>
@@ -388,6 +449,7 @@ export function DmChatApp({ supabase, session, onSignOut }: Props) {
           <label className="dm-search">
             <span className="visually-hidden">Search people by username</span>
             <input
+              ref={dmSearchInputRef}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search user for direct chat…"
@@ -475,9 +537,28 @@ export function DmChatApp({ supabase, session, onSignOut }: Props) {
             <header className="dm-chat-head">
               <h2>{chatTitle}</h2>
               {active.type === 'group' && (
-                <button type="button" className="ghost dm-add-people" onClick={() => setAddMembersOpen(true)}>
-                  Add people
-                </button>
+                <div className="dm-chat-actions">
+                  <button
+                    type="button"
+                    className="ghost dm-chat-action-btn"
+                    onClick={() => {
+                      void loadGroupMembers(active.groupId)
+                      setMembersModalOpen(true)
+                    }}
+                  >
+                    Members
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost dm-chat-action-btn"
+                    onClick={() => {
+                      void loadGroupMembers(active.groupId)
+                      setAddMembersOpen(true)
+                    }}
+                  >
+                    Add people
+                  </button>
+                </div>
               )}
             </header>
             <div className="dm-thread-scroll" ref={listRef} role="log" aria-live="polite">
@@ -562,17 +643,27 @@ export function DmChatApp({ supabase, session, onSignOut }: Props) {
                 {createSearching ? (
                   <li className="dm-hint">Searching…</li>
                 ) : (
-                  createHits.map((u) => (
-                    <li key={u.id}>
-                      <button
-                        type="button"
-                        className="dm-user-pick"
-                        onClick={() => pickMember(u, pickedMembers, setPickedMembers)}
-                      >
-                        {u.username} — add
-                      </button>
-                    </li>
-                  ))
+                  createHits.map((u) => {
+                    const already = pickedMembers.some((p) => p.id === u.id)
+                    return (
+                      <li key={u.id}>
+                        {already ? (
+                          <div className="dm-user-pick dm-user-pick--disabled" aria-disabled>
+                            {u.username}
+                            <span className="dm-pick-note">Already added</span>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className="dm-user-pick"
+                            onClick={() => pickMember(u, pickedMembers, setPickedMembers)}
+                          >
+                            {u.username} — add
+                          </button>
+                        )}
+                      </li>
+                    )
+                  })
                 )}
               </ul>
             )}
@@ -600,6 +691,31 @@ export function DmChatApp({ supabase, session, onSignOut }: Props) {
         </div>
       )}
 
+      {membersModalOpen && active?.type === 'group' && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="members-title">
+          <div className="modal-card modal-card--members">
+            <h2 id="members-title">Members — {chatTitle}</h2>
+            <p className="modal-hint">{groupMembersList.length} people in this group</p>
+            <ul className="members-list">
+              {groupMembersList.map((m) => (
+                <li key={m.user_id} className="members-list-item">
+                  <span className="members-name">
+                    {m.username}
+                    {m.user_id === me ? ' (you)' : ''}
+                  </span>
+                  <span className="members-joined">Joined {shortTime(m.joined_at)}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="modal-actions">
+              <button type="button" className="primary" onClick={() => setMembersModalOpen(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {addMembersOpen && active?.type === 'group' && (
         <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="add-members-title">
           <div className="modal-card">
@@ -619,17 +735,33 @@ export function DmChatApp({ supabase, session, onSignOut }: Props) {
                 {addSearching ? (
                   <li className="dm-hint">Searching…</li>
                 ) : (
-                  addHits.map((u) => (
-                    <li key={u.id}>
-                      <button
-                        type="button"
-                        className="dm-user-pick"
-                        onClick={() => pickMember(u, addPicked, setAddPicked)}
-                      >
-                        {u.username} — add
-                      </button>
-                    </li>
-                  ))
+                  addHits.map((u) => {
+                    const inGroup = groupMemberIdSet.has(u.id)
+                    const staged = addPicked.some((p) => p.id === u.id)
+                    return (
+                      <li key={u.id}>
+                        {inGroup ? (
+                          <div className="dm-user-pick dm-user-pick--disabled" aria-disabled>
+                            {u.username}
+                            <span className="dm-pick-note">In group</span>
+                          </div>
+                        ) : staged ? (
+                          <div className="dm-user-pick dm-user-pick--disabled" aria-disabled>
+                            {u.username}
+                            <span className="dm-pick-note">Ready to add</span>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className="dm-user-pick"
+                            onClick={() => pickMember(u, addPicked, setAddPicked)}
+                          >
+                            {u.username} — add
+                          </button>
+                        )}
+                      </li>
+                    )
+                  })
                 )}
               </ul>
             )}

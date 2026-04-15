@@ -378,13 +378,16 @@
 }
 
 .dm-actions-row {
+  display: flex;
+  gap: 0.5rem;
   margin-bottom: 0.65rem;
 }
 
 .dm-action-btn {
-  width: 100%;
-  padding: 0.45rem 0.65rem;
-  font-size: 0.875rem;
+  flex: 1;
+  min-width: 0;
+  padding: 0.45rem 0.5rem;
+  font-size: 0.8rem;
 }
 
 .dm-thread {
@@ -476,6 +479,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .dm-chat-head h2 {
@@ -486,9 +490,16 @@
   min-width: 0;
 }
 
-.dm-add-people {
+.dm-chat-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
   flex-shrink: 0;
+}
+
+.dm-chat-action-btn {
   font-size: 0.8rem;
+  white-space: nowrap;
 }
 
 .dm-thread-scroll {
@@ -585,6 +596,65 @@
 .modal-card h2 {
   font-size: 1.15rem;
   margin: 0 0 1rem;
+}
+
+.modal-card--members .members-list {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  max-height: min(50svh, 360px);
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--code-bg);
+}
+
+.members-list-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.members-list-item:last-child {
+  border-bottom: none;
+}
+
+.members-name {
+  font-weight: 600;
+  color: var(--text-h);
+  font-size: 0.9rem;
+}
+
+.members-joined {
+  font-size: 0.72rem;
+  color: var(--text);
+}
+
+.dm-user-pick--disabled {
+  cursor: not-allowed;
+  opacity: 0.75;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.9rem;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+
+.dm-user-pick--disabled:last-child {
+  border-bottom: none;
+}
+
+.dm-pick-note {
+  font-size: 0.72rem;
+  color: var(--text);
+  font-weight: 500;
+  flex-shrink: 0;
 }
 
 .modal-hint {
