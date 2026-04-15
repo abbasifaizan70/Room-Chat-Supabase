@@ -75,6 +75,68 @@ Use two browsers or one normal window plus a private/incognito window, create tw
 | `src/App.tsx`        | Auth UI, lobby, messages, Realtime + polling |
 | `src/lib/supabase.ts`| Supabase client (`VITE_*` env vars) |
 | `supabase/schema.sql`| Tables, RLS, triggers, Realtime publication |
+| `.github/workflows/deploy-github-pages.yml` | CI: build + deploy to GitHub Pages |
+
+## Deploy with GitHub (Pages)
+
+This repo includes a workflow that builds on every push to `main` and deploys the `dist` folder to **GitHub Pages** at:
+
+`https://<your-username>.github.io/<repository-name>/`
+
+### 1. Push the project to GitHub
+
+From your machine (install [Git](https://git-scm.com/) if needed):
+
+```bash
+cd /path/to/supabase-chat
+git init
+git add .
+git status   # confirm .env is NOT listed (.gitignore excludes it)
+git commit -m "Initial commit"
+```
+
+On [GitHub](https://github.com/new), create a **new repository** (empty, no README). Then:
+
+```bash
+git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO.git
+git branch -M main
+git push -u origin main
+```
+
+Use your real username and repo name in place of `YOUR_USERNAME` / `YOUR_REPO`.
+
+### 2. Add Supabase variables as repository secrets
+
+GitHub cannot read your local `.env`. Add the same values as **encrypted secrets**:
+
+1. Repo → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
+2. Create:
+   - `VITE_SUPABASE_URL` — your Supabase project URL
+   - `VITE_SUPABASE_ANON_KEY` — the **anon public** key (same as in `.env`)
+
+The workflow injects them at build time (Vite bakes `VITE_*` into the static JS).
+
+### 3. Enable GitHub Pages from Actions
+
+1. Repo → **Settings** → **Pages**
+2. Under **Build and deployment**, set **Source** to **GitHub Actions**
+
+The next push to `main` (or **Actions** → **Deploy to GitHub Pages** → **Run workflow**) will build and publish. When the workflow is green, open the site URL from the **deploy** job or **Settings → Pages**.
+
+### 4. Allow your production URL in Supabase Auth
+
+In Supabase: **Authentication → URL configuration**:
+
+- Add your GitHub Pages URL to **Redirect URLs**, e.g. `https://YOUR_USERNAME.github.io/YOUR_REPO/`
+- Optionally set **Site URL** to that same URL if this app is only used there
+
+Without this, sign-in redirects or email links can fail in production.
+
+### Notes
+
+- **Repository name** — The Vite `base` path is set automatically from the repo name so asset URLs work under `…/github.io/repo-name/`. If you rename the repo, push again so the workflow runs with the new name.
+- **`username.github.io` special case** — If the repo is named `YOUR_USERNAME.github.io`, the site is served at the domain root (`https://YOUR_USERNAME.github.io/`). Then set `base` to `/` only: either remove `VITE_BASE_PATH` from the workflow or change [`vite.config.ts`](vite.config.ts) for that case.
+- **Other hosts (Vercel, Netlify, Cloudflare Pages)** — Connect the same GitHub repo; set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in that host’s environment UI. Those URLs usually use `/` as the path—do **not** set `VITE_BASE_PATH` (leave default `/`).
 
 ## Troubleshooting
 
