@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { isSupabaseConfigured, supabase } from './lib/supabase'
+import { getSupabase, isSupabaseConfigured } from './lib/supabase'
 import './App.css'
 
 type MessageRow = {
@@ -42,6 +42,7 @@ export default function App() {
 }
 
 function ChatApp() {
+  const supabase = getSupabase()
   const [session, setSession] = useState<Session | null>(null)
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin')
   const [email, setEmail] = useState('')

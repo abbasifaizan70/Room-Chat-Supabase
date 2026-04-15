@@ -116,7 +116,9 @@ GitHub cannot read your local `.env`. Add the same values as **encrypted secrets
 
 Do not use names like `SUPABASE_URL` without the `VITE_` prefix—the build will not see them, and the live site will show a configuration error or throw `supabaseUrl is required`.
 
-The workflow injects them at build time (Vite bakes `VITE_*` into the static JS). After adding or changing secrets, **re-run the deploy workflow** (or push a commit) so the site rebuilds.
+Add these as **repository** secrets (not only under an Environment), unless you also wire that Environment into the workflow—otherwise the build step receives empty values.
+
+The workflow injects them at build time (Vite bakes `VITE_*` into the static JS). After adding or changing secrets, **re-run the deploy workflow** (or push a commit) so the site rebuilds. The workflow includes a step that **fails the build** if either secret is missing, so you get a clear error in GitHub Actions instead of a broken site.
 
 ### 3. Enable GitHub Pages from Actions (do this before the first deploy)
 

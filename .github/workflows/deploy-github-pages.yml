@@ -29,6 +29,19 @@ jobs:
           cache: npm
       - name: Install
         run: npm ci
+      - name: Verify Supabase env for Vite build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$VITE_SUPABASE_URL" ]; then
+            echo "::error::VITE_SUPABASE_URL is empty. Add it under Settings → Secrets and variables → Actions (repository secrets), exact name VITE_SUPABASE_URL."
+            exit 1
+          fi
+          if [ -z "$VITE_SUPABASE_ANON_KEY" ]; then
+            echo "::error::VITE_SUPABASE_ANON_KEY is empty. Add it under Settings → Secrets and variables → Actions (repository secrets), exact name VITE_SUPABASE_ANON_KEY."
+            exit 1
+          fi
       - name: Build
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
