@@ -36,3 +36,18 @@ export function getSupabase(): SupabaseClient {
   }
   return client
 }
+
+/**
+ * Full URL for OAuth `redirectTo`.
+ *
+ * Set `VITE_AUTH_REDIRECT_URL` (e.g. `http://localhost:5173/` or your GitHub Pages URL) so it
+ * matches **Authentication → URL configuration → Redirect URLs** in Supabase. If unset, the URL
+ * is derived from the current origin and Vite `base` (`import.meta.env.BASE_URL`).
+ */
+export function getAuthRedirectUrl(): string {
+  const explicit = import.meta.env.VITE_AUTH_REDIRECT_URL
+  if (typeof explicit === 'string' && explicit.trim()) {
+    return explicit.trim()
+  }
+  return new URL(import.meta.env.BASE_URL, window.location.origin).href
+}

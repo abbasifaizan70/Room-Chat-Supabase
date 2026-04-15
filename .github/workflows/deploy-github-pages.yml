@@ -46,6 +46,8 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          # Optional: set in repo secrets to match Supabase Redirect URLs (e.g. https://user.github.io/repo/)
+          VITE_AUTH_REDIRECT_URL: ${{ secrets.VITE_AUTH_REDIRECT_URL }}
           # Project site URL is https://<user>.github.io/<repo>/
           VITE_BASE_PATH: /${{ github.event.repository.name }}/
         run: npm run build

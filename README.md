@@ -4,7 +4,7 @@ Private **direct messages** and **group chats** with a WhatsApp-style sidebar: R
 
 ## Features
 
-- Email/password sign-up and sign-in
+- Email/password sign-up and sign-in; optional **Continue with Google** (enable the Google provider in Supabase)
 - Sidebar inbox (last message preview), main pane with aligned bubbles (yours vs theirs)
 - Search people by display name (`profiles.username`)
 - **Groups**: name a chat, pick members, message everyone; **Add people** from the group header
@@ -35,11 +35,18 @@ Private **direct messages** and **group chats** with a WhatsApp-style sidebar: R
 
    If the **Members** modal shows **0 people** or Add people never shows **In group** for existing members, run [`supabase/list_group_members.sql`](supabase/list_group_members.sql) (adds the `list_group_members` RPC the app uses to load members reliably).
 
-6. **Auth URLs (local dev)** — **Authentication → URL configuration**:
-   - Set **Site URL** to your dev origin (e.g. `http://localhost:5173`).
-   - Add the same URL under **Redirect URLs** if you use email confirmation links.
+6. **Auth URLs** — **Authentication → URL configuration**:
+   - Set **Site URL** to your main app URL (e.g. `http://localhost:5173` for local dev).
+   - Under **Redirect URLs**, list every URL OAuth and email links may return to (e.g. `http://localhost:5173/` and your production URL). These must match what the app sends as `redirectTo` (see optional `VITE_AUTH_REDIRECT_URL` below).
 
-7. **Realtime** — Under **Database → Publications**, ensure **`direct_messages`** and **`group_messages`** are in **`supabase_realtime`** (the SQL files usually add them).
+7. **Google sign-in (optional)** — **Authentication → Providers → Google**:
+   - Turn **Google** on. Supabase shows **Authorized redirect URI** for the callback (like `https://YOUR_PROJECT_REF.supabase.co/auth/v1/callback`) — copy it.
+   - In [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → **Credentials** → **Create credentials** → **OAuth client ID** → Application type **Web application**.
+   - Under **Authorized redirect URIs**, add the Supabase callback URL exactly (the one from the dashboard).
+   - Paste **Client ID** and **Client Secret** into Supabase’s Google provider settings and save.
+   - Your app’s own URL (`http://localhost:5173/` and any deployed URL) must stay listed under **Redirect URLs** in Supabase (step 6) so users return to the app after Google.
+
+8. **Realtime** — Under **Database → Publications**, ensure **`direct_messages`** and **`group_messages`** are in **`supabase_realtime`** (the SQL files usually add them).
 
 ## 2. Run the app locally
 
@@ -53,7 +60,11 @@ Edit `.env`:
 ```env
 VITE_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
 VITE_SUPABASE_ANON_KEY=your_anon_key_here
+# Optional: fixed OAuth return URL (must match a Redirect URL in Supabase exactly)
+# VITE_AUTH_REDIRECT_URL=http://localhost:5173/
 ```
+
+If you omit `VITE_AUTH_REDIRECT_URL`, the app uses the current browser origin plus Vite’s `base` path (from [`vite.config.ts`](vite.config.ts), or `VITE_BASE_PATH` when building for GitHub Pages). Set `VITE_AUTH_REDIRECT_URL` when you want an explicit URL (for example a stable value in CI).
 
 Start the dev server:
 
@@ -125,6 +136,7 @@ GitHub cannot read your local `.env`. Add the same values as **encrypted secrets
 2. Create secrets whose **names match exactly** (Vite only reads these at build time):
    - `VITE_SUPABASE_URL` — your Supabase project URL
    - `VITE_SUPABASE_ANON_KEY` — the **anon public** key (same as in `.env`)
+   - Optional: `VITE_AUTH_REDIRECT_URL` — e.g. `https://YOUR_USERNAME.github.io/YOUR_REPO/` (same string as in Supabase **Redirect URLs**). The deploy workflow passes it into the build so OAuth returns to the Pages URL instead of inferring at runtime.
 
 Do not use names like `SUPABASE_URL` without the `VITE_` prefix—the build will not see them, and the live site will show a configuration error or throw `supabaseUrl is required`.
 

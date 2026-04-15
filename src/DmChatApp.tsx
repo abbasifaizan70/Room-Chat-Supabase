@@ -86,6 +86,10 @@ export function DmChatApp({ supabase, session, onSignOut }: Props) {
   const [groupMembersList, setGroupMembersList] = useState<GroupMemberRow[]>([])
   const [membersModalOpen, setMembersModalOpen] = useState(false)
 
+  const [myProfile, setMyProfile] = useState<{ username: string } | null>(null)
+  const [allPeople, setAllPeople] = useState<UserHit[]>([])
+  const [allPeopleLoading, setAllPeopleLoading] = useState(true)
+
   const listRef = useRef<HTMLDivElement>(null)
   const dmSearchInputRef = useRef<HTMLInputElement>(null)
 
@@ -211,6 +215,47 @@ export function DmChatApp({ supabase, session, onSignOut }: Props) {
     }, 4000)
     return () => window.clearInterval(t)
   }, [loadInbox])
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      const { data, error } = await supabase.from('profiles').select('username').eq('id', me).maybeSingle()
+      if (cancelled) return
+      if (error) {
+        console.error(error)
+        setMyProfile(null)
+        return
+      }
+      setMyProfile(data ?? null)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [supabase, me])
+
+  useEffect(() => {
+    let cancelled = false
+    setAllPeopleLoading(true)
+    void (async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, username')
+        .neq('id', me)
+        .order('username')
+        .limit(500)
+      if (cancelled) return
+      setAllPeopleLoading(false)
+      if (error) {
+        console.error(error)
+        setAllPeople([])
+        return
+      }
+      setAllPeople((data ?? []) as UserHit[])
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [supabase, me])
 
   useEffect(() => {
     if (!active) {
@@ -437,7 +482,10 @@ export function DmChatApp({ supabase, session, onSignOut }: Props) {
               Sign out
             </button>
           </div>
-          <p className="dm-you">{session.user.email}</p>
+          <div className="dm-me">
+            <span className="dm-me-name">{myProfile?.username ?? '…'}</span>
+            <span className="dm-me-email">{session.user.email}</span>
+          </div>
           <div className="dm-actions-row">
             <button type="button" className="primary dm-action-btn" onClick={startNewChat}>
               New chat
@@ -480,7 +528,12 @@ export function DmChatApp({ supabase, session, onSignOut }: Props) {
             </div>
           )}
         </div>
-        <nav className="dm-inbox">
+        <div className="dm-sidebar-scroll">
+          <section className="dm-sidebar-block" aria-labelledby="chats-heading">
+            <h3 id="chats-heading" className="dm-sidebar-block-title">
+              Chats
+            </h3>
+            <nav className="dm-inbox">
           {inbox.length === 0 ? (
             <p className="dm-empty-sidebar">No chats yet. Search someone or create a group.</p>
           ) : (
@@ -524,7 +577,34 @@ export function DmChatApp({ supabase, session, onSignOut }: Props) {
               )
             })
           )}
-        </nav>
+            </nav>
+          </section>
+
+          <section className="dm-sidebar-block" aria-labelledby="people-heading">
+            <h3 id="people-heading" className="dm-sidebar-block-title">
+              Everyone
+            </h3>
+            {allPeopleLoading ? (
+              <p className="dm-hint dm-hint-pad">Loading people…</p>
+            ) : allPeople.length === 0 ? (
+              <p className="dm-hint dm-hint-pad">No other users yet.</p>
+            ) : (
+              <ul className="dm-people-list">
+                {allPeople.map((u) => (
+                  <li key={u.id}>
+                    <button
+                      type="button"
+                      className="dm-people-row"
+                      onClick={() => void openOrCreateDm(u.id, u.username)}
+                    >
+                      {u.username}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
       </aside>
 
       <main className="dm-main">
